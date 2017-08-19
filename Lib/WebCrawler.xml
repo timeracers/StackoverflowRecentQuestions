@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>WebCrawler</name>
+    </assembly>
+    <members>
+        <member name="F:WebCrawler.HttpRequest.DefaultHeaders">
+            <summary>
+            Headers used in all requests, by default it has 1 header "Accept" with value "application/json".
+            </summary>
+        </member>
+        <member name="M:WebCrawler.HttpRequest.Prepare">
+            <summary>
+            Optional. Prepares the web request so that it can be immediately sent at a later time.
+            </summary>
+        </member>
+    </members>
+</doc>

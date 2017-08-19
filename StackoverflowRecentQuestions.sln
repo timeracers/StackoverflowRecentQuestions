@@ -1,0 +1,51 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StackoverflowRecentQuestions", "StackoverflowRecentQuestions\StackoverflowRecentQuestions.csproj", "{23E2C578-D791-441C-B2E9-A630F807C594}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StackoverflowRecentQuestions.Test", "StackoverflowRecentQuestions.Test\StackoverflowRecentQuestions.Test.csproj", "{D7595BD8-5B8E-48CF-B98C-48459895C55A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StackoverflowRecentQuestions.UI", "StackoverflowRecentQuestions.UI\StackoverflowRecentQuestions.UI.csproj", "{631BF3DB-17DB-479E-8B91-8E416EBA9CDC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Lib", "Lib", "{A8695BF5-281A-49EA-A75F-4DC27AF1BACE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{820DE15D-54E2-4009-B919-DD2B26F1B617}"
+	ProjectSection(SolutionItems) = preProject
+		Lib\Newtonsoft.Json.dll = Lib\Newtonsoft.Json.dll
+		Lib\Newtonsoft.Json.xml = Lib\Newtonsoft.Json.xml
+		Lib\WebCrawler.dll = Lib\WebCrawler.dll
+		Lib\WebCrawler.xml = Lib\WebCrawler.xml
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Integration|Any CPU = Integration|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{23E2C578-D791-441C-B2E9-A630F807C594}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{23E2C578-D791-441C-B2E9-A630F807C594}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{23E2C578-D791-441C-B2E9-A630F807C594}.Integration|Any CPU.ActiveCfg = Integration|Any CPU
+		{23E2C578-D791-441C-B2E9-A630F807C594}.Integration|Any CPU.Build.0 = Integration|Any CPU
+		{23E2C578-D791-441C-B2E9-A630F807C594}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{23E2C578-D791-441C-B2E9-A630F807C594}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D7595BD8-5B8E-48CF-B98C-48459895C55A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D7595BD8-5B8E-48CF-B98C-48459895C55A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D7595BD8-5B8E-48CF-B98C-48459895C55A}.Integration|Any CPU.ActiveCfg = Integration|Any CPU
+		{D7595BD8-5B8E-48CF-B98C-48459895C55A}.Integration|Any CPU.Build.0 = Integration|Any CPU
+		{D7595BD8-5B8E-48CF-B98C-48459895C55A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D7595BD8-5B8E-48CF-B98C-48459895C55A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{631BF3DB-17DB-479E-8B91-8E416EBA9CDC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{631BF3DB-17DB-479E-8B91-8E416EBA9CDC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{631BF3DB-17DB-479E-8B91-8E416EBA9CDC}.Integration|Any CPU.ActiveCfg = Release|Any CPU
+		{631BF3DB-17DB-479E-8B91-8E416EBA9CDC}.Integration|Any CPU.Build.0 = Release|Any CPU
+		{631BF3DB-17DB-479E-8B91-8E416EBA9CDC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{631BF3DB-17DB-479E-8B91-8E416EBA9CDC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
