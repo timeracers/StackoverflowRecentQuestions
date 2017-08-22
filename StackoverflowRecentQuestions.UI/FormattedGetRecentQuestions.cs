@@ -28,7 +28,8 @@ namespace StackoverflowRecentQuestions.UI
                 : new JObject();
             _questions = new RecentQuestionsGetter(_store, _web,
                 options["DefaultTags"] != null ? options["DefaultTags"].ToObject<string[]>() : new string[0],
-                options["DefaultSite"] != null ? options["DefaultSite"].Value<string>() : "stackoverflow");
+                options["DefaultSite"] != null ? options["DefaultSite"].Value<string>() : "stackoverflow",
+                options["DefaultAmountOfQuestions"] != null ? options["DefaultAmountOfQuestions"].Value<int>() : 30);
         }
 
         public async Task Get(string[] args)
@@ -93,7 +94,7 @@ namespace StackoverflowRecentQuestions.UI
         public void SetDefaultSite(string[] args)
         {
             if (args.Length < 1)
-                Console.WriteLine("Site name required.");
+                Console.WriteLine("Site name required");
             else
             {
                 _questions.Site = args[0];
@@ -111,6 +112,21 @@ namespace StackoverflowRecentQuestions.UI
                 : new JObject();
             options["DefaultTags"] = JToken.FromObject(args);
             _store.Write("Options.json", Encoding.UTF8.GetBytes(options.ToString()));
+        }
+
+        public void SetDefaultAmountOfQuestions(string[] args)
+        {
+            int number;
+            if (args.Length < 1 || !int.TryParse(args[0], out number) || number > 100 || number < 1)
+                Console.WriteLine("A number within 1 and 100 is required");
+            else
+            {
+                _questions.Pagesize = number;
+                var options = _store.Exists("Options.json")
+                    ? JsonConvert.DeserializeObject<JObject>(Encoding.UTF8.GetString(_store.Read("Options.json"))) : new JObject();
+                options["DefaultAmountOfQuestions"] = JToken.FromObject(number);
+                _store.Write("Options.json", Encoding.UTF8.GetBytes(options.ToString()));
+            }
         }
     }
 }

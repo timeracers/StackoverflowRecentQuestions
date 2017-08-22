@@ -43,6 +43,8 @@ namespace StackoverflowRecentQuestions.UI
                 "Sets the default tags used in queries");
             Add("SetDefaultSite", _questionGetter.SetDefaultSite, "Syntax: SetDefaultSite <Site>",
                 "Sets the default site used in queries");
+            Add("SetDefaultAmountOfQuestions", _questionGetter.SetDefaultAmountOfQuestions, "Syntax: SetDefaultSite <Number of questions>",
+                "Sets the default amount of questions. The number has to within 1 and 100");
             Add("GetRecentQuestions", (s) => _questionGetter.Get(s).Wait(),
                "Syntax: GetRecentQuestions [<Within Last X Days>] [<Page>]",
                "Gets questions within the specified time with the default tags, and site",
