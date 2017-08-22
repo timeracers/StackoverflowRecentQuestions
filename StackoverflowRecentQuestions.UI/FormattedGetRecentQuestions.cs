@@ -65,15 +65,23 @@ namespace StackoverflowRecentQuestions.UI
                 Console.WriteLine("Throttle was Violated!");
             else
             {
-                for(var i = 0; i < optionalQuestions.Value.Count; i++)
-                    Console.WriteLine(i + ": " + optionalQuestions.Value[i].ToString());
+                for (var i = 0; i < optionalQuestions.Value.Count; i++)
+                {
+                    Console.Write((i + 1).ToString() + ": ");
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine(optionalQuestions.Value[i].Title);
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine("    " + string.Join(", ", optionalQuestions.Value[i].Tags));
+                    Console.ResetColor();
+                    Console.WriteLine("    " + optionalQuestions.Value[i].Link);
+                }
                 Console.WriteLine("Open link in browser? Type a number to open one or don't type anything to not.");
                 var response = Console.ReadLine();
                 uint number;
                 while (uint.TryParse(response, out number))
                 {
-                    if(number < optionalQuestions.Value.Count)
-                        Process.Start(optionalQuestions.Value[(int)number].Link);
+                    if (number <= optionalQuestions.Value.Count && number != 0)
+                        Process.Start(optionalQuestions.Value[(int)number - 1].Link);
                     else
                         Console.WriteLine("No question has that number");
                     Console.WriteLine("Open another?");
@@ -81,7 +89,7 @@ namespace StackoverflowRecentQuestions.UI
                 }
             }
         }
-        
+
         public void SetDefaultSite(string[] args)
         {
             if (args.Length < 1)
