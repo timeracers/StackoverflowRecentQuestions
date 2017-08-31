@@ -18,60 +18,46 @@ namespace StackoverflowRecentQuestions.Test
         private List<Question> QuestionsWhenUnrestricted;
         private List<Question> QuestionsWhenUnrestrictedPage2;
         private List<Question> QuestionsWithEitherJavaOrCSharpSince2017;
-        public Optional<bool> TestsPassed { get; private set; } = new Optional<bool>();
+        private bool TestsPassed;
         private string TestsFailedString = "These Tests Failed:";
 
 #if Integration
         [TestMethod]
         public async Task AggregateIntegrationTest()
         {
-            await SetAggregateTestResults(
-                new IO(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\StackoverflowRecentQuestions"), new WebRequester());
-            if (TestsPassed.HasValue && !TestsPassed.Value)
-                Assert.Fail(TestsFailedString);
-            else if (!TestsPassed.HasValue)
-                Assert.Inconclusive("Either backoff period was ignored or this ip is out of stackexchange.api requests for \"today\"");
-        }
-#endif
-
-        public async Task SetAggregateTestResults(IStore store, IWebRequester web)
-        {
+            var store = new JsonStore(
+                new HardDrive(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\StackoverflowRecentQuestions"));
+            var web = new WebRequester();
             var getter = new RecentQuestionsGetter(store, web);
 
-            WaitBackoffPeriodIfHasRemainingQuota(store);
-            var result = await getter.GetSince(0);
-            if (result.HasValue)
-                QuestionsWhenUnrestricted = result.Value;
-            else
-                return;
+            QuestionsWhenUnrestricted = await HandleStackexchangeThrottle(async () => await getter.GetSince(0), store);
+            QuestionsWhenUnrestrictedPage2 = await HandleStackexchangeThrottle(async () => await getter.GetSince(0, 2), store);
+            QuestionsWithEitherJavaOrCSharpSince2017 = await HandleStackexchangeThrottle(
+                async () => await getter.GetSince(Year2017, 1, "stackoverflow", new[] { "c#", "java" }), store);
 
-            WaitBackoffPeriodIfHasRemainingQuota(store);
-            result = await getter.GetSince(0, 2);
-            if (result.HasValue)
-                QuestionsWhenUnrestrictedPage2 = result.Value;
-            else
-                return;
-
-            WaitBackoffPeriodIfHasRemainingQuota(store);
-            result = await getter.GetSince(Year2017, 1, "stackoverflow", new[] { "c#", "java" });
-            if (result.HasValue)
-                QuestionsWithEitherJavaOrCSharpSince2017 = result.Value;
-            else
-                return;
-
-            TestsPassed = new Optional<bool>(true);
+            TestsPassed = true;
             var methods = GetType().GetMethods();
-            foreach(var method in methods)
-                if(method.Name.IndexOf("Test") == 0)
+            foreach (var method in methods)
+                if (method.Name.IndexOf("Test") == 0)
                     await AggregateResult(method.Name.Substring(4), web);
+
+            if (!TestsPassed)
+                Assert.Fail(TestsFailedString);
         }
 
-        private void WaitBackoffPeriodIfHasRemainingQuota(IStore store)
+        private async Task<T> HandleStackexchangeThrottle<T>(Func<Task<Optional<T>>> getter, JsonStore store)
         {
-            var throttle = store.Exists("StackexchangeThrottle.json")
-                ? JsonConvert.DeserializeObject<StackexchangeThrottle>(Encoding.UTF8.GetString(store.Read("StackexchangeThrottle.json")))
-                : new StackexchangeThrottle();
-            var currentTime = DateTimeOffset.Now.ToUnixTimeSeconds();
+            var result = await getter();
+            WaitBackoffPeriodIfHasRemainingQuota(store);
+            if (!result.HasValue)
+                Assert.Inconclusive("Either backoff period was ignored or this ip is out of stackexchange.api requests for \"today\"");
+            return result.Value;
+        }
+
+        private void WaitBackoffPeriodIfHasRemainingQuota(JsonStore store)
+        {
+            var throttle = store.Read<StackexchangeThrottle>("StackexchangeThrottle");
+            var currentTime = UnixEpoch.Now;
             if (throttle.BackoffUntil > currentTime && throttle.QuotaRemaining != 0)
             {
                 Debug.WriteLine("Waiting for backoff period to end.");
@@ -94,8 +80,8 @@ namespace StackoverflowRecentQuestions.Test
             }
             if (!result)
             {
-                TestsFailedString += (TestsPassed.Value ? " ": ", ") + testName;
-                TestsPassed = new Optional<bool>(false);
+                TestsFailedString += (TestsPassed ? " ": ", ") + testName;
+                TestsPassed = false;
             }
         }
 
@@ -107,12 +93,8 @@ namespace StackoverflowRecentQuestions.Test
 
         public async Task<bool> TestRecentQuestionGetterGivesQuestionWithAnySpecifiedTags(IWebRequester _)
         {
-            return QuestionsWithEitherJavaOrCSharpSince2017.All((q) => q.Tags.Contains("c#") || q.Tags.Contains("java"));
-        }
-
-        public async Task<bool> TestQuestionsWithEitherJavaOrCSharpSince2017IsNotEmpty(IWebRequester _)
-        {
-            return QuestionsWithEitherJavaOrCSharpSince2017.Count > 0;
+            return QuestionsWithEitherJavaOrCSharpSince2017.Any() 
+                && QuestionsWithEitherJavaOrCSharpSince2017.All((q) => q.Tags.Contains("c#") || q.Tags.Contains("java"));
         }
 
         public async Task<bool> TestRecentQuestionGetterGivesNoDuplicatesAmongPagesOfQuestions(IWebRequester _)
@@ -123,7 +105,7 @@ namespace StackoverflowRecentQuestions.Test
         public async Task<bool> TestQuestionsHaveValidLinks(IWebRequester web)
         {
             var result = true;
-            var tests = QuestionsWhenUnrestricted.Take(5).Select(async (q) => (await web.Request(q.Link)).Item2 == HttpStatusCode.OK);
+            var tests = QuestionsWithEitherJavaOrCSharpSince2017.Take(5).Select(async (q) => (await web.Request(q.Link)).StatusCode == HttpStatusCode.OK);
             result = (await Task.WhenAll(tests)).All((t) => t);
             return result;
         }
@@ -133,5 +115,6 @@ namespace StackoverflowRecentQuestions.Test
             return QuestionsWithEitherJavaOrCSharpSince2017.All((q) => q.CreationDate >= Year2017);
         }
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
+#endif
     }
 }

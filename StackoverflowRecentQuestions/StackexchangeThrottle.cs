@@ -1,14 +1,19 @@
-﻿namespace StackoverflowRecentQuestions
+﻿using Newtonsoft.Json;
+
+namespace StackoverflowRecentQuestions
 {
     public class StackexchangeThrottle
     {
-        public const long Unknown = -1;
+        public const long UNKNOWN = -1;
 
-        public long QuotaResetTime { get; set; }
-        public int QuotaRemaining { get; set; }
-        public long BackoffUntil { get; set; }
+        public long QuotaResetTime { get; set; } = UNKNOWN;
+        public int QuotaRemaining { get; set; } = (int)UNKNOWN;
+        public long BackoffUntil { get; set; } = UNKNOWN;
 
-        public StackexchangeThrottle(int quotaRemaining = (int)Unknown, long quotaResetTime = Unknown, long backoffUntil = Unknown)
+        [JsonConstructor]
+        private StackexchangeThrottle() { }
+        
+        public StackexchangeThrottle(int quotaRemaining = (int)UNKNOWN, long quotaResetTime = UNKNOWN, long backoffUntil = UNKNOWN)
         {
             QuotaRemaining = quotaRemaining;
             QuotaResetTime = quotaResetTime;

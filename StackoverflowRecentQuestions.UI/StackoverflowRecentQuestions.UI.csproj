@@ -48,8 +48,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ArrayExtensions.cs" />
-    <Compile Include="FormattedGetRecentQuestions.cs" />
+    <Compile Include="GetRecentQuestionsConsoleAdapter.cs" />
     <Compile Include="IntervalQuestionPresenter.cs" />
+    <Compile Include="Options.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

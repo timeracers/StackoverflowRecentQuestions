@@ -1,5 +1,4 @@
-﻿using Newtonsoft.Json.Linq;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,7 +10,7 @@ namespace StackoverflowRecentQuestions
 {
     public class RecentQuestionsGetter
     {
-        private IStore _store;
+        private JsonStore _store;
         private IWebRequester _web;
         public string[] Tags { private get; set; }
         public string Site { private get; set; }
@@ -26,10 +25,10 @@ namespace StackoverflowRecentQuestions
             }
         }
 
-        public RecentQuestionsGetter(IStore store, IWebRequester web, string site = "stackoverflow", int pagesize = 30) :
+        public RecentQuestionsGetter(JsonStore store, IWebRequester web, string site = "stackoverflow", int pagesize = 30) :
             this(store, web, new string[0], site) { }
 
-        public RecentQuestionsGetter(IStore store, IWebRequester web, string[] tags, string site = "stackoverflow", int pagesize = 30)
+        public RecentQuestionsGetter(JsonStore store, IWebRequester web, string[] tags, string site = "stackoverflow", int pagesize = 30)
         {
             _store = store;
             _web = web;
@@ -45,63 +44,65 @@ namespace StackoverflowRecentQuestions
 
         public async Task<Optional<List<Question>>> GetSince(long unixEpoch, int page, string site, string[] tags)
         {
-            var throttle = _store.Exists("StackexchangeThrottle.json")
-                ? JsonConvert.DeserializeObject<StackexchangeThrottle>(Encoding.UTF8.GetString(_store.Read("StackexchangeThrottle.json")))
-                : new StackexchangeThrottle();
-            if (DateTimeOffset.Now.ToUnixTimeSeconds() >= throttle.BackoffUntil
-                && throttle.QuotaRemaining > 0 || throttle.QuotaRemaining == StackexchangeThrottle.Unknown
-                || DateTimeOffset.Now.ToUnixTimeSeconds() >= throttle.QuotaResetTime)
+            var throttle = _store.Read<StackexchangeThrottle>("StackexchangeThrottle");
+            if (Unthrottled(throttle))
             {
-                throttle.BackoffUntil = StackexchangeThrottle.Unknown;
-                if (DateTimeOffset.Now.ToUnixTimeSeconds() >= throttle.QuotaResetTime)
-                    throttle.QuotaResetTime = StackexchangeThrottle.Unknown;
-
-                var url = "https://api.stackexchange.com/2.2/search/advanced?order=desc&sort=votes";
-                url += "&pagesize=" + _pagesize;
-                url += "&fromdate=" + unixEpoch;
-                url += "&page=" + page;
-                url += "&accepted=False";
-                url += "&closed=False";
-                url += "&site=" + site;
-                if (tags.Length > 0)
+                if (UnixEpoch.Now >= throttle.QuotaResetTime)
+                    throttle.QuotaResetTime = StackexchangeThrottle.UNKNOWN;
+                string url = CreateUrl(unixEpoch, page, site, tags);
+                var results = await _web.Request(url);
+                var wrapper = JsonConvert.DeserializeObject<StackexchangeWrapper>(Encoding.UTF8.GetString(Gzip.Decompress(results.Bytes)));
+                if (results.StatusCode == HttpStatusCode.OK)
                 {
-                    url += "&q=[" + tags[0] + "]";
-                    for (var i = 1; i < tags.Count(); i++)
-                        url += " OR [" + tags[i] + "]";
-                }
-                var results = await _web.Request(new Uri(url).AbsoluteUri.Replace("#", "%23"));
-
-
-                var wrapper = JsonConvert.DeserializeObject<StackexchangeWrapper>(Encoding.UTF8.GetString(Gzip.Decompress(results.Item1)));
-
-                if (results.Item2 == HttpStatusCode.OK)
-                {
-                    throttle.QuotaRemaining = wrapper.QuotaRemaining;
-                    if (throttle.QuotaRemaining + 1 == wrapper.QuotaMax)
-                        throttle.QuotaResetTime = DateTimeOffset.Now.AddDays(1).ToUnixTimeSeconds();
-                    if (wrapper.Backoff != default(int))
-                        throttle.BackoffUntil = DateTimeOffset.Now.AddSeconds(wrapper.Backoff).ToUnixTimeSeconds();
-
-                    var questions = wrapper.Items.ToList();
-                    _store.Write("StackexchangeThrottle.json", Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(throttle)));
-                    return new Optional<List<Question>>(questions);
+                    UpdateThrottle(throttle, wrapper);
+                    _store.Write("StackexchangeThrottle", throttle);
+                    return new Optional<List<Question>>(wrapper.Items.ToList());
                 }
                 else
                 {
                     throttle.BackoffUntil = ForceWait2Hours();
-                    _store.Write("StackexchangeThrottle.json", Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(throttle)));
-                    return new Optional<List<Question>>();
+                    _store.Write("StackexchangeThrottle", throttle);
                 }
             }
-            else
+            return new Optional<List<Question>>();
+        }
+
+        private static void UpdateThrottle(StackexchangeThrottle throttle, StackexchangeWrapper wrapper)
+        {
+            throttle.QuotaRemaining = wrapper.QuotaRemaining;
+            if (throttle.QuotaRemaining + 1 == wrapper.QuotaMax)
+                throttle.QuotaResetTime = UnixEpoch.Now + (long)TimeSpan.FromDays(1).TotalSeconds;
+            throttle.BackoffUntil = wrapper.Backoff != default(int) ? UnixEpoch.Now + wrapper.Backoff : StackexchangeThrottle.UNKNOWN;
+        }
+
+        private string CreateUrl(long unixEpoch, int page, string site, string[] tags)
+        {
+            var url = "https://api.stackexchange.com/2.2/search/advanced?order=desc&sort=votes";
+            url += "&pagesize=" + _pagesize;
+            url += "&fromdate=" + unixEpoch;
+            url += "&page=" + page;
+            url += "&closed=False";
+            url += "&site=" + site;
+            url += "&q=answers:0";
+            if (tags.Length > 0)
             {
-                return new Optional<List<Question>>();
+                url += "+[" + tags[0] + "]";
+                for (var i = 1; i < tags.Count(); i++)
+                    url += " OR [" + tags[i] + "]";
             }
+            return new Uri(url).AbsoluteUri.Replace("#", "%23");
+        }
+
+        private static bool Unthrottled(StackexchangeThrottle throttle)
+        {
+            return UnixEpoch.Now >= throttle.BackoffUntil
+                && (throttle.QuotaRemaining > 0 || throttle.QuotaRemaining == StackexchangeThrottle.UNKNOWN
+                || UnixEpoch.Now >= throttle.QuotaResetTime);
         }
 
         private long ForceWait2Hours()
         {
-            return DateTimeOffset.Now.AddHours(2).ToUnixTimeSeconds();
+            return UnixEpoch.Now + (long)TimeSpan.FromHours(2).TotalSeconds;
         }
     }
 }

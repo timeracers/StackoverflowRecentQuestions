@@ -2,16 +2,16 @@
 
 namespace StackoverflowRecentQuestions
 {
-    public class InMemory : IStore
+    public class DictionaryStore : IStore
     {
         private Dictionary<string, byte[]> addedValues;
         
-        public InMemory()
+        public DictionaryStore()
         {
             addedValues = new Dictionary<string, byte[]>();
         }
 
-        public InMemory(Dictionary<string, byte[]> startingValues)
+        public DictionaryStore(Dictionary<string, byte[]> startingValues)
         {
             addedValues = startingValues;
         }

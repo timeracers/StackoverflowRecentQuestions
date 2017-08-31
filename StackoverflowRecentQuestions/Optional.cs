@@ -18,7 +18,10 @@ namespace StackoverflowRecentQuestions
             }
         }
 
-        public Optional() { }
+        public Optional()
+        {
+            HasValue = false;
+        }
 
         public Optional(T value)
         {
@@ -38,7 +41,7 @@ namespace StackoverflowRecentQuestions
 
         public override bool Equals(object other)
         {
-            return other is Optional<T> && Equals((Optional<T>)other);
+            return other is Optional<T> ? Equals((Optional<T>)other) : other is T && Equals(new Optional<T>((T)other));
         }
 
         public bool Equals(Optional<T> other)

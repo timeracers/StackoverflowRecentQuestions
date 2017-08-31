@@ -1,19 +1,22 @@
+This console app can either be used as a simple executable or can be ran from the command prompt to do a single command.
+
 How to use this console app:
   To get recent questions use
     GetRecentQuestions [<Within Last X Days>] [<Page>]
     GetRecentQuestions <Within Last X Days> <Page> <Site> [<Tag1>] [<Tag2>]...
   To periodly get recent questions use
-    SetIntervalForQuestions <Minutes>
-    SetIntervalForQuestions
+    SetIntervalForQuestions <Minutes>*
+    SetIntervalForQuestions*
   To enable reminders use
-    EnableReminder
+    EnableReminder*
   To disable use
-    DisableReminder
+    DisableReminder*
   To exit use
     Exit
   To see other commands or more information about each command use
     Help
     Help <Command> [<Command>] [<Command>]...
+*Interval questions won't trigger when this is ran from the command prompt to do a single command.
     
 To use the class RecentQuestionsGetter
 First Construct it

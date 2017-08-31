@@ -10,9 +10,11 @@ namespace StackoverflowRecentQuestions.UI
         private static Dictionary<string, Action<string[]>> _commands = new Dictionary<string, Action<string[]>>();
         private static Dictionary<string, string[]> _commandsHelp = new Dictionary<string, string[]>();
 
-        private static FormattedGetRecentQuestions _questionGetter;
+        private static GetRecentQuestionsConsoleAdapter _questionGetter;
         private static IntervalQuestionsPresenter _intervalQuestions;
-        public static ConcurrentStack<Action<string[]>> ConsoleReadLineStack;
+        private static SingleStore<Action<string[]>> _currentQuestion;
+        private static JsonStore _store;
+        private static bool Quiting = false;
 
         private static void Add(string name, Action<string[]> command, params string[] help)
         {
@@ -22,37 +24,37 @@ namespace StackoverflowRecentQuestions.UI
 
         public static void Main(string[] args)
         {
-            ConsoleReadLineStack = new ConcurrentStack<Action<string[]>>();
-            var store = new IO(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\StackoverflowRecentQuestions");
+            _currentQuestion = new SingleStore<Action<string[]>>();
+            _store = new JsonStore(new HardDrive(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)
+                + "\\StackoverflowRecentQuestions"));
             var web = new WebRequester();
-            _questionGetter = new FormattedGetRecentQuestions(store, web);
-            _questionGetter.Initialize();
-            _intervalQuestions = new IntervalQuestionsPresenter(_questionGetter, store);
-            _intervalQuestions.Initialize();
+            _questionGetter = GetRecentQuestionsConsoleAdapter.Create(_store, web, _currentQuestion);
+            _intervalQuestions = IntervalQuestionsPresenter.Create(_questionGetter, _store);
 
+            Add("ViewSettings", (_) => { Console.WriteLine(_store.Read<Options>("Options").ToString()); }, 
+                "Syntax: ViewSettings", "Writes the current settings to the console");
             Add("SetIntervalForQuestions", _intervalQuestions.SetInterval, "Syntax: SetIntervalForQuestions <Minutes>",
-                "Sets the interval for when you are presented questions*",
-                "*It will ask if you are ready for them before making the web request",
+                "Sets the interval for when you are presented questions",
                 "Syntax: SetIntervalForQuestions",
                 "Disables automatic presentation of questions");
             Add("EnableReminder", (_) => _intervalQuestions.EnableReminder(), "Syntax: EnableReminder",
-                "Makes the program play a sound and flash its icon when you are presented questions*");
+                "Makes the program play a sound when you are presented questions");
             Add("DisableReminder", (_) => _intervalQuestions.DisableReminder(), "Syntax: DisableReminder",
-                "Makes the program no longer play a sound and flash its icon when you are presented questions*");
+                "Makes the program no longer play a sound when you are presented questions");
             Add("SetDefaultTags", _questionGetter.SetDefaultTags, "Syntax: SetDefaultTags [<Tag1>] [<Tag2>]...",
                 "Sets the default tags used in queries");
             Add("SetDefaultSite", _questionGetter.SetDefaultSite, "Syntax: SetDefaultSite <Site>",
                 "Sets the default site used in queries");
             Add("SetDefaultAmountOfQuestions", _questionGetter.SetDefaultAmountOfQuestions, "Syntax: SetDefaultSite <Number of questions>",
                 "Sets the default amount of questions. The number has to within 1 and 100");
-            Add("GetRecentQuestions", (s) => _questionGetter.Get(s).Wait(),
+            Add("GetRecentQuestions", async (s) => await _questionGetter.Get(s),
                "Syntax: GetRecentQuestions [<Within Last X Days>] [<Page>]",
                "Gets questions within the specified time with the default tags, and site",
                "Syntax: GetRecentQuestions <Within Last X Days> <Page> <Site> [<Tag1>] [<Tag2>]...",
                "Gets questions within the specified time with any of the specified tags if any, and the site");
 
-            Add("Exit", (_) => notQuitting = false, "Syntax: Exit", "Exits the program");
-            Add("Quit", (_) => notQuitting = false, "Syntax: Quit", "Exits the program");
+            Add("Exit", (_) => Quiting = true, "Syntax: Exit", "Exits the program");
+            Add("Quit", (_) => Quiting = true, "Syntax: Quit", "Exits the program");
             Add("Clear", (_) => Console.Clear(), "Syntax: Clear", "Clears the console");
             Add("Help", (s) =>
             {
@@ -76,8 +78,11 @@ namespace StackoverflowRecentQuestions.UI
                 "Syntax: Help <Command> [<Command>] [<Command>]...", "Writes the help section of those commands");
 
             if (args.Length == 0)
-                while (notQuitting)
+            {
+                Console.WriteLine("Type commands. Use the Help command for information about commands");
+                while (!Quiting)
                     ResolveCommand(ReadCommandLineArgs(Console.ReadLine()));
+            }
             else
                 ResolveCommand(ReadCommandLineArgs(string.Join(" ", args)));
             Environment.Exit(Environment.ExitCode);
@@ -85,29 +90,32 @@ namespace StackoverflowRecentQuestions.UI
 
         private static void ResolveCommand(string[] input)
         {
-            if (!ConsoleReadLineStack.IsEmpty)
+            lock (_currentQuestion)
             {
-                Action<string[]> action;
-                ConsoleReadLineStack.TryPop(out action);
-                action(input);
-            }
-            else
-            {
-                var commandFound = _commands.ContainsKey(input[0].ToUpper());
-                if (commandFound)
+                if (_currentQuestion.HasValue)
                 {
-                    try
-                    {
-                        _commands[input[0].ToUpper()](input.SubArray(1, input.Length - 1));
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine("Exception was unhandled in the command");
-                        Console.WriteLine("Exception: " + ex.ToString());
-                    }
+                    Action<string[]> action = _currentQuestion.Value;
+                    _currentQuestion.Clear();
+                    action(input);
                 }
                 else
-                    Console.WriteLine("Invalid Command, type help to display all commands with their help sections");
+                {
+                    var commandFound = _commands.ContainsKey(input[0].ToUpper());
+                    if (commandFound)
+                    {
+                        try
+                        {
+                            _commands[input[0].ToUpper()](input.SubArray(1, input.Length - 1));
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine("Exception was unhandled in the command");
+                            Console.WriteLine("Exception: " + ex.ToString());
+                        }
+                    }
+                    else
+                        Console.WriteLine("Invalid Command, type help to display all commands with their help sections");
+                }
             }
         }
 
@@ -146,7 +154,5 @@ namespace StackoverflowRecentQuestions.UI
             foreach (var st in help.Value)
                 Console.WriteLine(st);
         }
-
-        private static bool notQuitting = true;
     }
 }

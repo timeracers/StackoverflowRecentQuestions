@@ -9,21 +9,21 @@ namespace StackoverflowRecentQuestions
 {
     public class FakeWebRequester : IWebRequester
     {
-        public Tuple<byte[], HttpStatusCode> DefaultResponse { get; set; }
-        public List<Tuple<byte[], HttpStatusCode>> NextResponses { get; set; }
+        public Response DefaultResponse { get; set; }
+        public List<Response> NextResponses { get; set; }
 
-        public FakeWebRequester(params Tuple<byte[], HttpStatusCode>[] firstResponses)
+        public FakeWebRequester(params Response[] firstResponses)
         {
-            DefaultResponse = new Tuple<byte[], HttpStatusCode>(new byte[0], (HttpStatusCode)500);
+            DefaultResponse = new Response(new byte[0], (HttpStatusCode)500);
             NextResponses = firstResponses.ToList();
         }
 
-        public async Task<Tuple<byte[], HttpStatusCode>> Request(string url, string method = "GET")
+        public async Task<Response> Request(string url, string method = "GET")
         {
             return await Request(url, method, "");
         }
 
-        public async Task<Tuple<byte[], HttpStatusCode>> Request(string url, string method, string parameter)
+        public async Task<Response> Request(string url, string method, string parameter)
         {
             if(NextResponses.Count > 0)
             {

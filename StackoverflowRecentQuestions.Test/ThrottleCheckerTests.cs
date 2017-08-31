@@ -12,7 +12,7 @@ namespace StackoverflowRecentQuestions.Test
         [TestMethod]
         public void IfICanNotMakeRequestsWhyReturnsNoReasonToNotRequestWhenNoFileIsStored()
         {
-            Assert.AreEqual(new Optional<string>(), new ThrottleChecker(new InMemory()).IfICanNotMakeRequestsWhy());
+            Assert.AreEqual(new Optional<string>(), new ThrottleChecker(new JsonStore(new DictionaryStore())).IfICanNotMakeRequestsWhy());
         }
 
         [TestMethod]
@@ -20,22 +20,29 @@ namespace StackoverflowRecentQuestions.Test
         {
             var startingValues = new Dictionary<string, byte[]>() {
                 { "StackexchangeThrottle.json", Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(
-                    new StackexchangeThrottle(backoffUntil:DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 2))) }
+                    new StackexchangeThrottle(backoffUntil:UnixEpoch.Now + 2))) }
             };
-            Assert.AreEqual(new Optional<string>("The server said to backoff for").Value,
-                new ThrottleChecker(new InMemory(startingValues)).IfICanNotMakeRequestsWhy().Value.Substring(0, 30));
+            var checker = new ThrottleChecker(new JsonStore(new DictionaryStore(startingValues)));
+                
+            var why = checker.IfICanNotMakeRequestsWhy().Value.Substring(0, 30);
+
+            Assert.AreEqual(new Optional<string>("The server said to backoff for").Value, why);
         }
 
         [TestMethod]
         public void IfICanNotMakeRequestsWhyReturnsOutOfRequestsIf0RequestsRemainingAndRequestsDidNotReset()
         {
-            var resetTime = DateTimeOffset.UtcNow.AddHours(12);
+            var resetTime = UnixEpoch.Now + (long)TimeSpan.FromHours(12).TotalSeconds;
             var startingValues = new Dictionary<string, byte[]>() {
                 { "StackexchangeThrottle.json", Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(
-                    new StackexchangeThrottle(0, resetTime.ToUnixTimeSeconds()))) }
+                    new StackexchangeThrottle(0, resetTime))) }
             };
-            Assert.AreEqual(new Optional<string>("You ran out of api requests for today. It will reset at " + resetTime + "."),
-                new ThrottleChecker(new InMemory(startingValues)).IfICanNotMakeRequestsWhy());
+            var checker = new ThrottleChecker(new JsonStore(new DictionaryStore(startingValues)));
+
+            var why = checker.IfICanNotMakeRequestsWhy();
+
+            Assert.AreEqual(new Optional<string>("You ran out of api requests for today. It will reset at "
+                + DateTimeOffset.FromUnixTimeSeconds(resetTime) + "."), why);
         }
 
         [TestMethod]
@@ -44,7 +51,11 @@ namespace StackoverflowRecentQuestions.Test
             var startingValues = new Dictionary<string, byte[]>() {
                 { "StackexchangeThrottle.json", Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(new StackexchangeThrottle(0))) }
             };
-            Assert.AreEqual(new Optional<string>(), new ThrottleChecker(new InMemory(startingValues)).IfICanNotMakeRequestsWhy());
+            var checker = new ThrottleChecker(new JsonStore(new DictionaryStore(startingValues)));
+
+            var noReason = checker.IfICanNotMakeRequestsWhy();
+
+            Assert.AreEqual(new Optional<string>(), noReason);
         }
 
         [TestMethod]
@@ -53,7 +64,11 @@ namespace StackoverflowRecentQuestions.Test
             var startingValues = new Dictionary<string, byte[]>() {
                 { "StackexchangeThrottle.json", Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(new StackexchangeThrottle(backoffUntil: 1))) }
             };
-            Assert.AreEqual(new Optional<string>(), new ThrottleChecker(new InMemory(startingValues)).IfICanNotMakeRequestsWhy());
+            var checker = new ThrottleChecker(new JsonStore(new DictionaryStore(startingValues)));
+
+            var noReason = checker.IfICanNotMakeRequestsWhy();
+
+            Assert.AreEqual(new Optional<string>(), noReason);
         }
     }
 }

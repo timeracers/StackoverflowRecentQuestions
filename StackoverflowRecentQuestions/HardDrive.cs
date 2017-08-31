@@ -2,11 +2,11 @@
 
 namespace StackoverflowRecentQuestions
 {
-    public class IO : IStore
+    public class HardDrive : IStore
     {
         private string _basePath;
 
-        public IO(string basePath)
+        public HardDrive(string basePath)
         {
             _basePath = basePath.EndsWith("\\") ? basePath: basePath + "\\";
             Directory.CreateDirectory(basePath);

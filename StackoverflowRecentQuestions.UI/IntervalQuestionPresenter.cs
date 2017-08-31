@@ -1,27 +1,23 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using System.Media;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace StackoverflowRecentQuestions.UI
 {
     public class IntervalQuestionsPresenter
     {
-        private bool _responded = false;
-        private FormattedGetRecentQuestions _getter;
-        private IStore _store;
+        private GetRecentQuestionsConsoleAdapter _getter;
+        private JsonStore _store;
         private int _intervalInMinutes;
         private bool _remind;
         private long _intervalStart;
+        private Thread _thread;
 
-        public IntervalQuestionsPresenter(FormattedGetRecentQuestions questionGetter, IStore store)
+        public IntervalQuestionsPresenter(GetRecentQuestionsConsoleAdapter questionGetter, JsonStore store)
         {
             _store = store;
             _getter = questionGetter;
@@ -29,11 +25,18 @@ namespace StackoverflowRecentQuestions.UI
 
         public void Initialize()
         {
-            var options = _store.Exists("Options.json") ? JsonConvert.DeserializeObject<JObject>(Encoding.UTF8.GetString(_store.Read("Options.json")))
-                : new JObject();
-            _intervalInMinutes = options["Interval"] != null ? options["Interval"].ToObject<int>() : 0;
-            _remind = options["Remind"] != null && options["Remind"].ToObject<bool>();
-            new Thread(new ThreadStart(IntervallyPresentQuestions)).Start();
+            var options = _store.Read<Options>("Options");
+            _intervalInMinutes = options.Interval;
+            _remind = options.Remind;
+            _thread = new Thread(new ThreadStart(IntervallyPresentQuestions));
+            _thread.Start();
+        }
+
+        public static IntervalQuestionsPresenter Create(GetRecentQuestionsConsoleAdapter questionGetter, JsonStore store)
+        {
+            var presenter = new IntervalQuestionsPresenter(questionGetter, store);
+            presenter.Initialize();
+            return presenter;
         }
         
         public void SetInterval(string[] args)
@@ -43,53 +46,43 @@ namespace StackoverflowRecentQuestions.UI
             else
             {
                 _intervalInMinutes = args.Length > 0 ? int.Parse(args[0]) : 0;
-                var options = _store.Exists("Options.json")
-                    ? JsonConvert.DeserializeObject<JObject>(Encoding.UTF8.GetString(_store.Read("Options.json"))) : new JObject();
-                options["Interval"] = _intervalInMinutes;
-                _store.Write("Options.json", Encoding.UTF8.GetBytes(options.ToString()));
+                var options = _store.Read<Options>("Options");
+                options.Interval = _intervalInMinutes;
+                _store.Write("Options", options);
+                Console.WriteLine("Interval changed");
             }
         }
 
         public void EnableReminder()
         {
             _remind = true;
-            var options = _store.Exists("Options.json") ? JsonConvert.DeserializeObject<JObject>(Encoding.UTF8.GetString(_store.Read("Options.json")))
-                : new JObject();
-            options["Remind"] = true;
-            _store.Write("Options.json", Encoding.UTF8.GetBytes(options.ToString()));
+            var options = _store.Read<Options>("Options");
+            options.Remind = true;
+            _store.Write("Options", options);
+            Console.WriteLine("Reminder enabled");
         }
 
         public void DisableReminder()
         {
             _remind = false;
-            var options = _store.Exists("Options.json") ? JsonConvert.DeserializeObject<JObject>(Encoding.UTF8.GetString(_store.Read("Options.json")))
-                : new JObject();
-            options["Remind"] = false;
-            _store.Write("Options.json", Encoding.UTF8.GetBytes(options.ToString()));
+            var options = _store.Read<Options>("Options");
+            options.Remind = false;
+            _store.Write("Options", options);
+            Console.WriteLine("Reminder disabled");
         }
 
         private void IntervallyPresentQuestions()
         {
-            _intervalStart = DateTimeOffset.Now.ToUnixTimeSeconds();
+            _intervalStart = UnixEpoch.Now;
             while (true)
             {
-                while (_intervalInMinutes == 0 || _intervalInMinutes * 60 > DateTimeOffset.Now.ToUnixTimeSeconds() - _intervalStart)
-                    Thread.Sleep(20000);
-                Console.WriteLine("Ready for questions? Type yes to continue");
+                while (_intervalInMinutes == 0 || _intervalInMinutes * 60 > UnixEpoch.Now - _intervalStart)
+                    Thread.Sleep(15000);
                 if (_remind)
                     SystemSounds.Exclamation.Play();
-                Program.ConsoleReadLineStack.Push((s) => PresentQuestions(s).Wait());
-                while (!_responded)
-                    Thread.Sleep(25);
-                _responded = false;
-                _intervalStart = DateTimeOffset.Now.ToUnixTimeSeconds();
+                Task.Run(() => _getter.Get(_intervalStart));
+                _intervalStart = UnixEpoch.Now;
             }
-        }
-        private async Task PresentQuestions(string[] commandLineArgs)
-        {
-            if (commandLineArgs.Length > 0 && commandLineArgs[0].ToUpper() == "YES")
-                await _getter.Get(_intervalStart);
-            _responded = true;
         }
     }
 }
